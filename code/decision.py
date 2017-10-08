@@ -15,17 +15,25 @@ def decision_step(Rover):
         # Check for Rover.mode status
         if Rover.mode == 'forward': 
             # Check the extent of navigable terrain
-            if len(Rover.nav_angles) >= Rover.stop_forward:  
+            if len(Rover.nav_angles) >= Rover.stop_forward or Rover.find_sample:
                 # If mode is forward, navigable terrain looks good 
                 # and velocity is below max, then throttle 
-                if Rover.vel < Rover.max_vel:
-                    # Set throttle value to throttle setting
-                    Rover.throttle = Rover.throttle_set
-                else: # Else coast
+                if Rover.vel < 0.05 and Rover.throttle != 0:
                     Rover.throttle = 0
-                Rover.brake = 0
-                # Set steering to average angle clipped to the range +/- 15
-                Rover.steer = np.clip(np.mean(Rover.nav_angles * 180/np.pi), -15, 15)
+                    Rover.brake = 0
+                    Rover.steer = -15
+                else:
+                    if Rover.vel < Rover.max_vel - 0.1:
+                        # Set throttle value to throttle setting
+                        Rover.throttle = Rover.throttle_set
+                        Rover.brake = 0
+                    elif Rover.vel > Rover.max_vel:
+                        Rover.throttle = 0
+                        Rover.brake = Rover.brake_set
+                    else: # Else coast
+                        Rover.throttle = 0
+                        Rover.brake = 0
+                    Rover.steer = np.clip(quarter(Rover.nav_angles) * 180/np.pi, -15, 15)
             # If there's a lack of navigable terrain pixels then go to 'stop' mode
             elif len(Rover.nav_angles) < Rover.stop_forward:
                     # Set mode to "stop" and hit the brakes!
@@ -68,8 +76,13 @@ def decision_step(Rover):
         Rover.brake = 0
         
     # If in a state where want to pickup a rock send pickup command
-    if Rover.near_sample and Rover.vel == 0 and not Rover.picking_up:
+    #if Rover.near_sample and Rover.vel == 0 and not Rover.picking_up:
+    if Rover.near_sample and not Rover.picking_up:
         Rover.send_pickup = True
     
     return Rover
 
+def quarter(numbers):
+    mean = np.mean(numbers)
+    quarter_numbers = np.array([x for x in numbers if x >= mean])
+    return np.mean(quarter_numbers)
